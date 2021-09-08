@@ -40,7 +40,7 @@ class GroupTest extends munit.FunSuite {
 
   def debug(dir: String): Unit = {
     import sys.process._
-    println(s"tree $dir" !!)
+    println(s"tree --du -h $dir" !!)
 
     Seq("/bin/sh", "-c", s"du -sh $dir/ds-parquet-partitioned-country/*").!
   }
@@ -93,7 +93,7 @@ class GroupTest extends munit.FunSuite {
   test("output partitioning strategies") {
     val spark = sparkFixture()
 
-    val places: RDD[Place] = spark.sparkContext.parallelize(randPlaces, 10)
+    val places: RDD[Place] = spark.sparkContext.parallelize(randPlaces, 5)
     // assertEquals(11100l, places.count)
 
     import spark.implicits._
