@@ -103,7 +103,6 @@ class GroupTest extends munit.FunSuite {
     places.toDS.write.parquet(base.getAbsolutePath + "/ds-parquet")
     places.toDS.write.partitionBy("country").parquet(base.getAbsolutePath + "/ds-parquet-partitioned-country")
 
-    debug(base.getAbsolutePath)
 
     println(s"RDD Partitioner: ${places.partitioner}")
 
@@ -112,5 +111,12 @@ class GroupTest extends munit.FunSuite {
         println(s"partition: ${cc} -- ${places.size}")
       }
     }
+
+    places
+      .sortBy(_ => Random.nextDouble())
+      .toDS.write.partitionBy("country")
+      .parquet(base.getAbsolutePath + "/partitioned-random-ordered")
+
+    debug(base.getAbsolutePath)
   }
 }
