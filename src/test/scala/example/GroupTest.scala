@@ -32,7 +32,10 @@ class GroupTest extends munit.FunSuite {
   override def munitFixtures = List(sparkFixture)
 
   def randPlaces: Seq[Place] = {
-    (1 to 100).map(i => Place.random("ae")) ++ (1 to 1000).map(i => Place.random("us"))
+    (1 to 100).map(i => Place.random("ae")) ++
+      (1 to 1000).map(i => Place.random("gb")) ++
+      (1 to 20000).map(i => Place.random("ie")) ++
+      (1 to 50000).map(i => Place.random("us"))
   }
 
   def debug(dir: String): Unit = {
@@ -42,11 +45,56 @@ class GroupTest extends munit.FunSuite {
     Seq("/bin/sh", "-c", s"du -sh $dir/ds-parquet-partitioned-country/*").!
   }
 
+
+  // /tmp/spark-tests843519477656602314
+  // ├── ds-parquet
+  // │   ├── part-00000-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00001-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00002-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00003-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00004-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00005-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00006-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00007-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00008-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   ├── part-00009-4af7d6c4-babb-4c03-9d8f-b812dcfe88a7-c000.snappy.parquet
+  // │   └── _SUCCESS
+  // └── ds-parquet-partitioned-country
+  //     ├── country=ae
+  //     │   └── part-00000-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     ├── country=gb
+  //     │   └── part-00000-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     ├── country=ie
+  //     │   ├── part-00000-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00001-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   └── part-00002-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     ├── country=us
+  //     │   ├── part-00002-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00003-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00004-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00005-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00006-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00007-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   ├── part-00008-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     │   └── part-00009-f5f1f756-5206-49c6-a77b-e61521f8698a.c000.snappy.parquet
+  //     └── _SUCCESS
+  // Sizes:
+  // 0       /tmp/spark-tests843519477656602314/ds-parquet-partitioned-country/_SUCCESS
+  // 120K    /tmp/spark-tests843519477656602314/ds-parquet-partitioned-country/country=ae
+  // 1.1M    /tmp/spark-tests843519477656602314/ds-parquet-partitioned-country/country=gb
+  // 21M     /tmp/spark-tests843519477656602314/ds-parquet-partitioned-country/country=ie
+  // 52M     /tmp/spark-tests843519477656602314/ds-parquet-partitioned-country/country=us
+
+  // Num Records:
+  // partition: ae -- 100
+  // partition: gb -- 1000
+  // partition: ie -- 20000
+  // partition: us -- 50000
   test("output partitioning strategies") {
     val spark = sparkFixture()
 
     val places: RDD[Place] = spark.sparkContext.parallelize(randPlaces, 10)
-    assertEquals(1100l, places.count)
+    // assertEquals(11100l, places.count)
 
     import spark.implicits._
 
@@ -56,5 +104,13 @@ class GroupTest extends munit.FunSuite {
     places.toDS.write.partitionBy("country").parquet(base.getAbsolutePath + "/ds-parquet-partitioned-country")
 
     debug(base.getAbsolutePath)
+
+    println(s"RDD Partitioner: ${places.partitioner}")
+
+    places.groupBy(_.country).foreachPartition { parts =>
+      parts.foreach { case (cc, places) =>
+        println(s"partition: ${cc} -- ${places.size}")
+      }
+    }
   }
 }
